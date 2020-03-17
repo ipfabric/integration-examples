@@ -1,0 +1,36 @@
+---
+- name: ssh username/password
+  connection: network_cli
+  hosts: user
+  become_method: enable
+  tasks:
+    - name: Get SNMP config
+      register: get_snmp_config
+      ios_command:
+        commands:
+          - "show run | inc snmp-server"
+
+    - name: Display the config
+      when: "(get_snmp_config.stdout_lines[0][0] != '')"
+      debug:
+        msg: "Config: {{ get_snmp_config.stdout_lines[0] }}"
+
+    - name: Remove SNMP config
+      when: "(get_snmp_config.stdout_lines[0][0] != '')"
+      with_items: "{{ get_snmp_config.stdout_lines[0] }}"
+      ios_config:
+        lines: "no {{ item }}"
+
+    - name: Add SNMP config
+      ios_config:
+        lines:
+        - snmp-server community newCommunity ro
+        - snmp-server host 10.10.10.10 version 2c snmpCommunity
+      notify:
+      - Save Configuration
+
+  handlers:
+
+  - name: "Save Configuration"
+    ios_command:
+      commands: "write memory"
